@@ -1,0 +1,20 @@
+[
+    {
+        "login": 166477,
+        "password": "Moon@20oct1994",
+        "server": "FusionMarkets-Demo",
+        "path": "C:/Program Files/Fusion Markets MetaTrader 5/terminal64.exe"
+    },
+    {
+        "login": 177788,
+        "password": "password2",
+        "server": "FusionMarkets-Demo",
+        "path": "C:/Program Files/Fusion Markets MetaTrader 5/terminal64.exe"
+    },
+    {
+        "login": 188899,
+        "password": "password3",
+        "server": "FusionMarkets-Demo",
+        "path": "C:/Program Files/Fusion Markets MetaTrader 5/terminal64.exe"
+    }
+]
