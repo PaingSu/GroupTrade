@@ -52,7 +52,6 @@ class TradeHandler:
                 'tv_request': request_data,
                 'tv_response': response_data,
                 'created_at': datetime.utcnow()
-                'account_login': request_data.get('account_login')
             }
             
             # Get direction emoji
@@ -216,17 +215,6 @@ class TradeHandler:
                 close_status, 
                 status_update
             )
-            
-            # ✅ Mark as close_pending for MT5 worker
-            try:
-                await self.db.async_update_trade_status(
-                    trade['trade_id'],
-                    'close_pending',
-                    {'updated_at': datetime.utcnow().isoformat()}
-                )
-                print(f"✅ Marked trade {trade['trade_id']} as close_pending in DB")
-            except Exception as e:
-                logger.error(f"Failed to mark trade {trade['trade_id']} as close_pending: {e}")
             
             # Log close action with consistent format
             if is_partial:

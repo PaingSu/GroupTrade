@@ -14,6 +14,7 @@ from sqlalchemy.orm import scoped_session, sessionmaker
 from sqlalchemy.pool import QueuePool
 
 from src.models.database import Trade
+from src.models.database import CloseOrder
 
 logger = logging.getLogger('DatabaseHandler')
 
@@ -415,7 +416,6 @@ class DatabaseHandler:
                 "side": trade.side,
                 "quantity": trade.quantity,
                 "type": trade.type,
-                "account_login": trade.account_login
             })
         session.close()
         return result
@@ -427,58 +427,26 @@ class DatabaseHandler:
             trade.status = "executed"
             session.commit()
         session.close()
-        
+
     def get_pending_closes(self):
         session = self.SessionLocal()
-        trades = session.query(Trade).filter_by(status="close_pending").all()
+        closes = session.query(CloseOrder).filter_by(status="pending").all()
         result = []
-        for trade in trades:
+        for close in closes:
             result.append({
-                "trade_id": trade.trade_id,
-                "account_login": trade.account_login,
-                "instrument": trade.instrument,
-                "mt5_ticket": trade.mt5_ticket,
-                "quantity": trade.quantity,
-                "side": trade.side,
+                "close_id": close.close_id,
+                "ticket": close.ticket,
+                "symbol": close.symbol,
+                "volume": close.volume,
+                "side": close.side,
             })
         session.close()
         return result
 
-    def mark_trade_as_closed(self, trade_id):
+    def mark_close_as_executed(self, close_id):
         session = self.SessionLocal()
-        trade = session.query(Trade).filter_by(trade_id=trade_id).first()
-        if trade:
-            trade.status = "closed"
-            trade.is_closed = True
-            trade.closed_at = datetime.utcnow()
+        close = session.query(CloseOrder).filter_by(close_id=close_id).first()
+        if close:
+            close.status = "executed"
             session.commit()
-        session.close()
-        
-    def update_mt5_ticket(self, trade_id, account_login, mt5_ticket):
-        session = self.SessionLocal()
-        trade = session.query(Trade).filter_by(trade_id=trade_id).first()
-        if trade:
-            trade.mt5_ticket = mt5_ticket
-            trade.account_login = str(account_login)
-            session.commit()
-        session.close()
-        
-    def mark_trade_as_pending_close(self, trade_id):
-        session = self.SessionLocal()
-        trade = session.query(Trade).filter_by(trade_id=trade_id).first()
-        if trade:
-            for account in accounts:
-                pending_close = Trade(
-                    trade_id=trade.trade_id,
-                    account_login=str(account['login']),
-                    mt5_ticket=trade.mt5_ticket,
-                    instrument=trade.instrument,
-                    quantity=trade.quantity,
-                    side=trade.side,
-                    status='close_pending'
-                )
-                session.add(pending_close)
-            session.commit()
-        else:
-            print(f"⚠️ Trade {trade_id} not found")
         session.close()

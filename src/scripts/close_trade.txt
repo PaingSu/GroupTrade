@@ -1,0 +1,47 @@
+def close_trade(account, ticket, symbol, volume, side):
+    if not connect_mt5(account):
+        print(f"❌ Failed to connect to MT5 for {account['login']}")
+        return False
+
+    # Ensure ticket is int
+    try:
+        ticket = int(ticket)
+    except Exception as e:
+        print(f"❌ Invalid ticket number: {ticket} ({e})")
+        mt5.shutdown()
+        return False
+
+    # Get correct price
+    price = mt5.symbol_info_tick(symbol).bid if side.lower() == "buy" else mt5.symbol_info_tick(symbol).ask
+    opposite_type = mt5.ORDER_TYPE_SELL if side.lower() == "buy" else mt5.ORDER_TYPE_BUY
+
+    request = {
+        "action": mt5.TRADE_ACTION_DEAL,
+        "symbol": symbol,
+        "volume": volume,
+        "type": opposite_type,
+        "position": ticket,
+        "price": price,
+        "deviation": 10,
+        "type_time": mt5.ORDER_TIME_GTC,
+        "type_filling": mt5.ORDER_FILLING_IOC,
+    }
+
+    print(f"\n📤 Sending close order for {account['login']} - {symbol} ticket {ticket}")
+    print(f"📦 Close request: {request}")
+
+    result = mt5.order_send(request)
+    mt5.shutdown()
+
+    # ✅ Defensive check for None
+    if result is None:
+        print(f"❌ Close order failed for {account['login']}: No response from MT5 (check terminal, ticket, or market status)")
+        return False
+
+    if result.retcode == mt5.TRADE_RETCODE_DONE:
+        print(f"✅ Position closed for {account['login']}. Deal ID: {result.deal}")
+        return True
+    else:
+        print(f"❌ Close order failed for {account['login']}: {result.retcode}")
+        print(f"⚠️  Error: {result.comment}")
+        return False

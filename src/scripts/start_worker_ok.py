@@ -76,11 +76,6 @@ def place_trade(account, trade):
 
     if result.retcode == mt5.TRADE_RETCODE_DONE:
         print(f"✅ Order placed for {account['login']} - {order_type.upper()} {symbol} {volume}")
-        
-        # ✅ Save MT5 ticket to DB (use str because mt5_ticket is varchar)
-        # from src.utils.database_handler import db_handler  # add this import at the top or pass it in
-        db_handler.update_mt5_ticket(trade['trade_id'], account['login'], str(result.order))
-
         return True
     else:
         print(f"❌ Order failed for {account['login']}: {result.retcode}")
@@ -91,16 +86,8 @@ def close_trade(account, ticket, symbol, volume, side):
     if not connect_mt5(account):
         print(f"❌ Failed to connect to MT5 for {account['login']}")
         return False
-        
-    # Ensure ticket is int
-    try:
-        ticket = int(ticket)
-    except Exception as e:
-        print(f"❌ Invalid ticket number: {ticket} ({e})")
-        mt5.shutdown()
-        return False
 
-    # Get correct price
+    # Use BID for sell, ASK for buy
     price = mt5.symbol_info_tick(symbol).bid if side.lower() == "buy" else mt5.symbol_info_tick(symbol).ask
     opposite_type = mt5.ORDER_TYPE_SELL if side.lower() == "buy" else mt5.ORDER_TYPE_BUY
 
@@ -116,61 +103,32 @@ def close_trade(account, ticket, symbol, volume, side):
         "type_filling": mt5.ORDER_FILLING_IOC,
     }
 
-    print(f"\n📤 Sending close order for {account['login']} - {symbol} ticket {ticket}")
+    print(f"📤 Sending close order for {account['login']} - {symbol} ticket {ticket}")
     print(f"📦 Close request: {request}")
 
     result = mt5.order_send(request)
-    # mt5.shutdown()
+    mt5.shutdown()
 
-    # ✅ Defensive check for None
-    if result is None:
-        print(f"❌ Close order failed for {account['login']}: No response from MT5 (check terminal, ticket, or market status)")
-        mt5.shutdown()
-        return False
-
-    if result.retcode == mt5.TRADE_RETCODE_DONE:
-        print(f"✅ Position closed for {account['login']}. Deal ID: {result.deal}")
-        # return True
-    else:
+    if result.retcode != mt5.TRADE_RETCODE_DONE:
         print(f"❌ Close order failed for {account['login']}: {result.retcode}")
         print(f"⚠️  Error: {result.comment}")
-        # return False
-    
-    mt5.shutdown()
-    return result.retcode == mt5.TRADE_RETCODE_DONE
+        return False
+    else:
+        print(f"✅ Position closed for {account['login']}. Deal ID: {result.deal}")
+        return True
 
 def main():
     print("🚀 Group Worker Started")
     while True:
-        # Process pending trades
         pending_trades = db_handler.get_pending_trades()
         if pending_trades:
             for trade in pending_trades:
                 for account in accounts:
-                    success = place_trade(account, trade)
-                    if success:
-                        # After placing trade, mark only that account’s row as executed
-                        db_handler.update_mt5_ticket(trade['trade_id'], account['login'], str(result.order))  # example
+                    place_trade(account, trade)
+
                 db_handler.mark_trade_as_executed(trade['trade_id'])
 
-        # Process pending closes
-        pending_closes = db_handler.get_pending_closes()
-        if pending_closes:
-            for close in pending_closes:
-                account_login = str(close.get('account_login'))
-                if not account_login:
-                    print(f"⚠️ Skipping close for {close['trade_id']} (no account_login)")
-                    continue
-
-                account = next((acc for acc in accounts if str(acc['login']) == account_login), None)
-                if account:
-                    success = close_trade(account, close['mt5_ticket'], close['instrument'], float(close['quantity']), close['side'])
-                    if success:
-                        db_handler.mark_trade_as_closed(close['trade_id'])
-                else:
-                    print(f"❌ Account login {account_login} not found in accounts.json")
-
-        time.sleep(1)
+        time.sleep(1)  # Check every 1 second
 
 if __name__ == "__main__":
     main()

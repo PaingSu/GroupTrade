@@ -3,7 +3,7 @@ import time
 from datetime import datetime
 
 from sqlalchemy import (JSON, Boolean, Column, DateTime, Integer, Numeric,
-                        String, Text, create_engine, text)
+                        String, Text, create_engine, text, Float)
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
@@ -53,7 +53,6 @@ class Trade(Base):
     position_id = Column(String(50), index=True)
     mt5_ticket = Column(String(50))
     mt5_position = Column(String(50))
-    account_login = Column(String(50))
 
     # Trade details
     instrument = Column(String(20), nullable=False)
@@ -93,6 +92,20 @@ class Trade(Base):
     
     def __repr__(self):
         return f"<Trade(trade_id='{self.trade_id}', instrument='{self.instrument}', status='{self.status}')>"
+
+class CloseOrder(Base):
+    __tablename__ = 'close_orders'
+
+    close_id = Column(Integer, primary_key=True, autoincrement=True)
+    ticket = Column(Integer, nullable=False)
+    symbol = Column(String, nullable=False)
+    volume = Column(Float, nullable=False)
+    side = Column(String, nullable=False)  # 'buy' or 'sell'
+    status = Column(String, default='pending')
+    created_at = Column(DateTime(timezone=True), default=datetime.utcnow)
+
+    def __repr__(self):
+        return f"<CloseOrder(close_id='{self.close_id}', symbol='{self.symbol}', side='{self.side}', status='{self.status}')>"
 
 def init_db():
     """Initialize database tables."""

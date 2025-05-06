@@ -79,7 +79,7 @@ def place_trade(account, trade):
         
         # ✅ Save MT5 ticket to DB (use str because mt5_ticket is varchar)
         # from src.utils.database_handler import db_handler  # add this import at the top or pass it in
-        db_handler.update_mt5_ticket(trade['trade_id'], account['login'], str(result.order))
+        db_handler.update_mt5_ticket(trade['trade_id'], str(result.order))
 
         return True
     else:
@@ -147,30 +147,18 @@ def main():
         if pending_trades:
             for trade in pending_trades:
                 for account in accounts:
-                    success = place_trade(account, trade)
-                    if success:
-                        # After placing trade, mark only that account’s row as executed
-                        db_handler.update_mt5_ticket(trade['trade_id'], account['login'], str(result.order))  # example
+                    place_trade(account, trade)
                 db_handler.mark_trade_as_executed(trade['trade_id'])
 
         # Process pending closes
         pending_closes = db_handler.get_pending_closes()
         if pending_closes:
             for close in pending_closes:
-                account_login = str(close.get('account_login'))
-                if not account_login:
-                    print(f"⚠️ Skipping close for {close['trade_id']} (no account_login)")
-                    continue
+                for account in accounts:
+                    close_trade(account, close['mt5_ticket'], close['instrument'], float(close['quantity']), close['side'])
+                db_handler.mark_trade_as_closed(close['trade_id'])
 
-                account = next((acc for acc in accounts if str(acc['login']) == account_login), None)
-                if account:
-                    success = close_trade(account, close['mt5_ticket'], close['instrument'], float(close['quantity']), close['side'])
-                    if success:
-                        db_handler.mark_trade_as_closed(close['trade_id'])
-                else:
-                    print(f"❌ Account login {account_login} not found in accounts.json")
-
-        time.sleep(1)
+        time.sleep(1)  # Check every 1 second
 
 if __name__ == "__main__":
     main()
